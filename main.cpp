@@ -1,4 +1,7 @@
+#include <imgui.h>
 #include <Novice.h>
+
+#include "MyFunctions.h"
 
 const char kWindowTitle[] = "LC1A_13_クリハラ_ケント_タイトル";
 
@@ -12,6 +15,38 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	char keys[256] = {0};
 	char preKeys[256] = {0};
 
+	Pendulum pendulum
+	{
+		{0,1.0f,0},
+		0.8f,
+		0.7f,
+		0,
+		0
+	};
+
+	Sphere sphere
+	{
+		{0,0,0},
+		0.08f
+	};
+
+	Vector3 linePoint[2] =
+	{
+		{0,0,0},
+		{0,0,0}
+	};
+
+	unsigned int color = WHITE;
+
+	float deltaTime = 1.0f / 60.0f;
+
+	bool isStart = false;
+
+	Vector3 cameraTranslate{ 0.0f,1.9f,-6.49f };
+	Vector3 cameraRotate{ 0.26f,0.0f,0.0f };
+
+	float cameraSpeed = 0.01f;
+
 	// ウィンドウの×ボタンが押されるまでループ
 	while (Novice::ProcessMessage() == 0) {
 		// フレームの開始
@@ -24,6 +59,68 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///
 		/// ↓更新処理ここから
 		///
+		if (keys[DIK_W])
+		{
+			cameraTranslate.z += cameraSpeed;
+		}
+		if (keys[DIK_S])
+		{
+			cameraTranslate.z -= cameraSpeed;
+		}
+		if (keys[DIK_A])
+		{
+			cameraTranslate.x -= cameraSpeed;
+		}
+		if (keys[DIK_D])
+		{
+			cameraTranslate.x += cameraSpeed;
+		}
+		if (keys[DIK_Q])
+		{
+			cameraTranslate.y += cameraSpeed;
+		}
+		if (keys[DIK_E])
+		{
+			cameraTranslate.y -= cameraSpeed;
+		}
+
+		Matrix4x4 cameraMatrix = MakeAffineMatrix({ 1.0f,1.0f,1.0f }, cameraRotate, cameraTranslate);
+		Matrix4x4 viewMatrix = Inverse(cameraMatrix);
+		Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(0.45f, (float)kWindowWidth / (float)kWindowHeight, 0.1f, 100.0f);
+		Matrix4x4 viewProjectionMatrix = Multiply(viewMatrix, projectionMatrix);
+		Matrix4x4 viewportMatrix = MakeViewportMatrix(0, 0, (float)kWindowWidth, (float)kWindowHeight, 0.0f, 1.0f);
+
+		if (isStart)
+		{
+			pendulum.angularAcceleration = -(9.8f / pendulum.length) * std::sin(pendulum.angle);
+		}
+		pendulum.angularVelocity += pendulum.angularAcceleration * deltaTime;
+		pendulum.angle += pendulum.angularVelocity * deltaTime;
+
+
+		sphere.center.x = pendulum.anchor.x + std::sin(pendulum.angle) * pendulum.length;
+		sphere.center.y = pendulum.anchor.y - std::cos(pendulum.angle) * pendulum.length;
+		sphere.center.z = pendulum.anchor.z;
+
+		linePoint[0] = Transform(Transform({ 0,1.2f,0 }, viewProjectionMatrix), viewportMatrix);
+		linePoint[1] = Transform(Transform(sphere.center, viewProjectionMatrix), viewportMatrix);
+
+
+		ImGui::Begin("window");
+
+
+		ImGui::Text("camera");
+		ImGui::DragFloat3("CameraRotate", &cameraRotate.x, 0.01f);
+
+		ImGui::Text("setting");
+
+		if (ImGui::Button("start"))
+		{
+			isStart = true;
+		}
+
+
+		ImGui::End();
 
 		///
 		/// ↑更新処理ここまで
@@ -32,6 +129,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///
 		/// ↓描画処理ここから
 		///
+
+		DrawGrid(viewProjectionMatrix, viewportMatrix);
+		DrawSphere(sphere, viewProjectionMatrix, viewportMatrix, color);
+		Novice::DrawLine((int)linePoint[0].x, (int)linePoint[0].y, (int)linePoint[1].x, (int)linePoint[1].y, color);
 
 		///
 		/// ↑描画処理ここまで
